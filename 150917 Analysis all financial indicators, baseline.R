@@ -4,42 +4,23 @@
 ### Financial indicators 1960-2011, means;
 
 ### Packages 
-library('BMS')
-library('data.table')
-library('xtable')
-
-# NEED TO CHANGE THIS WD !
-
-# Define working directory
-#wd <- "E:/Disk Google/wp" 
-wd <- "C:/Users/14982/Documents/WP" # NEED TO CHANGE THIS WD !
-
-# Define data folder
-datadir <- paste0(wd,"/data/")
-
-# Define figure folder
-folderfig <- paste0(wd,"/figures/")
-
-# Define results folder 
-resultsdir <- paste0(wd,"/results/")
+library(BMS)
+library(data.table)
+library(xtable)
+library(here)
 
 #
 #
 #
 
 ### Load data
-hhm_data <- data.table(read.table(file=paste0(datadir,"hhm_data.csv"), sep=",", header=T))
-View(hhm_data)
+hhm_data <- data.table(read.table(file=here("data/hhm_data.csv"), sep=",", header=T))
 
-# Removing Botswana, Phillipines and Zambia
-#hhm_data <- hhm_data[!(iso3c %in% c("BWA","PHL","ZMB")),]
-#hhm_data <- hhm_data[!(iso3c %in% c("BWA")),]
+# Read the data on total credit (BIS)
+total.credit <- read.csv(here("data/BIS total credit final.csv"), stringsAsFactors = F, header = T)
 
-#hhm_data <- hhm_data[complete.cases(hhm_data),]
-
-# Creating dummy for Botswana
-#hhm_data[, BTW:=0]
-#hhm_data[iso3c=="BWA", BTW:=1]
+# Merge original data with total credit
+hhm_data <- merge(hhm_data,total.credit, by = c("iso3c"), all.x = T)
 
 # Removing vars with a lot of missing observations, text columns & variables not used in the analysis
 hhm_data <- hhm_data[, c("Accounts1000","MarketCap.WOtop10","MarketVol","Country",
@@ -47,11 +28,6 @@ hhm_data <- hhm_data[, c("Accounts1000","MarketCap.WOtop10","MarketVol","Country
                          "legor_uk","legor_ge","legor_sc","legor_fr","group","fst",
                          "statehist","ATMs1000","BankBranches"):=NULL]
 
-
-# Scale the variables (demean)
-# hhm_data <- hhm_data[complete.cases(hhm_data),]
-# resc <- sapply(colnames(hhm_data)[2:ncol(hhm_data)],function(x){scale(hhm_data[,x, with=F], center=T, scale=F)})
-# hhm_data[,2:ncol(hhm_data)] <- as.data.table(resc)
 
 #
 #
