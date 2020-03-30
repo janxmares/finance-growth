@@ -8,6 +8,7 @@ library(BMS)
 library(data.table)
 library(xtable)
 library(here)
+library(ggplot2)
 
 #
 #
@@ -23,19 +24,61 @@ total.credit <- read.csv(here("data/BIS total credit final.csv"), stringsAsFacto
 hhm_data <- merge(hhm_data,total.credit, by = c("iso3c"), all.x = T)
 
 # Removing vars with a lot of missing observations, text columns & variables not used in the analysis
-hhm_data <- hhm_data[, c("Accounts1000","MarketCap.WOtop10","MarketVol","Country",
+hhm_data_baseline <- hhm_data[, c("Accounts1000","MarketCap.WOtop10","MarketVol","Country",
                          "iso3c","iso2c","findex","finrev","Lrev","sum_cr","max_cr",
                          "legor_uk","legor_ge","legor_sc","legor_fr","group","fst",
-                         "statehist","ATMs1000","BankBranches"):=NULL]
-
+                         "statehist","ATMs1000","BankBranches","totalcredit"):=NULL]
 
 #
 #
 #
 
 # Run BMA, baseline
-bma_finind <- bms(hhm_data, iter=15000000, burn=3000000, mprior = "uniform", g = "hyper",
+bma_finind <- bms(hhm_data_baseline, iter=5000000, burn=1000000, mprior = "uniform", g = "hyper",
                             nmodel=5000, mcmc="bd", user.int= F)
+
+#
+#
+
+# Estimation with subset
+hhm_data_subset <- hhm_data[, j = .(GDP60, Mining, RFEXDist, Confucian, LifeExp,
+                                    Buddha, NetInterestMargin, EquipInv, BankZscore,
+                                    MarketTurn, Privatecredit, MarketCap, totalcredit)]
+
+# Keep only the complete cases
+hhm_data_subset <- hhm_data_subset[complete.cases(hhm_data_subset),]
+
+# Estimation
+bma_finind_tc <- bms(hhm_data_subset, mprior = "uniform", g = "hyper")
+
+# Plot - private credit vs. total credit
+cor(hhm_data_subset$Privatecredit, hhm_data_subset$totalcredit)
+ggplot(data=hhm_data_subset, aes(x=Privatecredit, y=totalcredit)) + geom_smooth(method='lm') + geom_point()
+
+# fit linear regression of total credit on bank privatecredit
+pc_tc <- lm(totalcredit ~ Privatecredit, data = hhm_data_subset)
+
+# fit the values for the original data
+# hhm_data[is.na(totalcredit), totalcredit := predict(pc_tc, hhm_data[is.na(totalcredit),])]
+hhm_data[, totalcredit := predict(pc_tc, hhm_data)]
+
+# Reestimate using the total credit
+hhm_data_tc <- hhm_data[, c("Accounts1000","MarketCap.WOtop10","MarketVol","Country",
+                         "iso3c","iso2c","findex","finrev","Lrev","sum_cr","max_cr",
+                         "legor_uk","legor_ge","legor_sc","legor_fr","group","fst",
+                         "statehist","ATMs1000","BankBranches","Privatecredit"):=NULL]
+
+# Run BMA
+bma_finind <- bms(hhm_data_tc, iter=5000000, burn=1000000, mprior = "uniform", g = "hyper",
+                            nmodel=5000, mcmc="bd", user.int= F)
+
+# Results
+summary(bma_finind)
+coef(bma_finind, exact = T)
+
+#
+#
+
 # BMA, random model prior
 # bma_finind <- bms(hhm_data, iter=3000000, burn=1000000, mprior = "uniform", g = "hyper",
 #                             nmodel=5000, mcmc="bd", user.int= F)
